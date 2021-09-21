@@ -1,9 +1,12 @@
-function configSettingsGUI(nParamsPerCol, options)
+function configSettingsGUI(filenames, nParamsPerCol, options)
 
-if nargin==0 || isempty(nParamsPerCol)
+if ~exist('filenames','var') || isempty(filenames)
+    filenames = {};
+end
+if ~exist('nParamsPerCol','var') || isempty(nParamsPerCol)
     nParamsPerCol = 6;
 end
-if nargin<2
+if ~exist('options','var') 
     options = '';
 end    
 if nParamsPerCol<1
@@ -13,7 +16,7 @@ if nParamsPerCol>12
     nParamsPerCol = 12;
 end
 
-InitializeGuiStruct(options);
+InitializeGuiStruct(filenames, options);
 hf = CreateGui();
 ResetGui(hf);
 ResizeGui(hf, nParamsPerCol);
@@ -22,7 +25,7 @@ DrawConfigParams(hf, hBttnSave);
 
 
 % -------------------------------------------------------------
-function InitializeGuiStruct(options)
+function InitializeGuiStruct(filenames, options)
 global cfgGui
 
 if ~isempty(cfgGui)
@@ -49,7 +52,7 @@ cfgGui = struct(...
     'handle',[] ...
     );
 
-cfgGui.filedata = ConfigFileClass();
+cfgGui.filedata = ConfigFileClass(filenames);
 
 % char to pixel conversion
 cfgGui.units = 'pixels';
