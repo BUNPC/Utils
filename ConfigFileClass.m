@@ -203,11 +203,11 @@ classdef ConfigFileClass < handle
                 end
                 fprintf(obj.fids(ii), '\n');
                 for jj = 1:length(obj.params)
-                    if obj.params.iSrc ~= ii
+                    if obj.params(jj).iSrc ~= ii
                         continue
                     end
                     if iscell(obj.params(jj).valOptions) && all(~cellfun(@isempty,obj.params(jj).valOptions))
-                        fprintf(obj.fids(ii), '%% %s # %s\n', obj.params(ii).name, strjoin(obj.params(jj).valOptions,', '));
+                        fprintf(obj.fids(ii), '%% %s # %s\n', obj.params(jj).name, strjoin(obj.params(jj).valOptions,', '));
                     elseif iscell(obj.params(jj).valOptions) && all(cellfun(@isempty,obj.params(jj).valOptions))
                         fprintf(obj.fids(ii), '%% %s #\n', obj.params(jj).name);
                     else
