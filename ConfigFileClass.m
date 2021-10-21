@@ -1,63 +1,58 @@
-classdef ConfigFileClass < FileClass
+classdef ConfigFileClass < handle
     
     properties
+        filenames
+        fids
         linestr;
         params;
+        err
     end
     
     methods
         
         % ----------------------------------------------------
-        function obj = ConfigFileClass(filename0)
+        function obj = ConfigFileClass(rootdir)
             obj.linestr = '';
             obj.params = [];
-            obj.filename = '';
+            obj.filenames = '';
             
             % Error checks
-            if ~exist('filename0','var') || isempty(filename0)
+            if ~exist('rootdir','var') || isempty(rootdir)
                 if isdeployed()
-                    filename0 = [getAppDir(), 'AppSettings.cfg'];
+                    rootdir = getAppDir();
                 else
-                    filename0 = which('AppSettings.cfg');
+                    appname = which(getNamespace());
+                    rootdir = fileparts(appname);
                 end
             end
-                                    
-            [pname, fname, ext] = fileparts(filename0); 
-            if isempty(pname)
-                pname = '.';
-            end
-            filename = [pname, '/', fname, ext];
-            if ~obj.Exist(filename)
-                if isempty(ext)
-                    filename = [pname, '/', fname, '.cfg'];
-                    if ~obj.Exist(filename)
-                        return;
-                    end
+            obj.FindCfgFiles(rootdir);
+            
+            kk = [];
+            for ii = 1:length(obj.filenames)
+                obj.fids(ii) = fopen(obj.filenames{ii},'rt');
+                if obj.fids(ii)<0
+                    kk = [kk, ii];
+                    continue;
+                end
+                
+                % We have a filename of an existing readable file.
+                try
+                    obj.Parse(ii);
+                catch ME
+                    % In case of parsing error make sure to close file handle
+                    % so we don't leave the application in a bad state, then rethrow error
+                    obj.Close();
+                    rethrow(ME)
                 end
             end
-            obj.fid = fopen(filename,'rt');
-            if obj.fid<0
-                return;
-            end
-
-            % We have a filename of an existing readable file.
-            try 
-                obj.filename = filesepStandard(filename);
-                obj.Parse();
-            catch ME
-                % In case of parsing error make sure to close file handle 
-                % so we don't leave the application in a bad state, then rethrow error
-                fclose(obj.fid);
-	            rethrow(ME)
-            end
-            fclose(obj.fid);
-            obj.fid = -1;
+            
+            obj.Close();
             obj.linestr = '';
         end
         
         
         % ----------------------------------------------------
-        function Parse(obj)
+        function Parse(obj, iF)
             %
             % Parse(obj)
             %
@@ -126,14 +121,13 @@ classdef ConfigFileClass < FileClass
             % % END
             %
             obj.err = 0;
-            iP=1;
             obj.linestr = '';
             while ~obj.eof()
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 %%%% Find next parameter's name %%%%
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 while ~obj.isParamName()
-                    obj.linestr = fgetl(obj.fid);
+                    obj.linestr = fgetl(obj.fids(iF));
                     if obj.eof()
                         obj.ExitWithError(1);
                         return;
@@ -157,8 +151,8 @@ classdef ConfigFileClass < FileClass
                 obj.linestr = '';
                 val = {};
                 while 1
-                    fp_previous = ftell(obj.fid);
-                    obj.linestr = fgetl(obj.fid);
+                    fp_previous = ftell(obj.fids(iF));
+                    obj.linestr = fgetl(obj.fids(iF));
                     if isempty(obj.linestr)
                         continue;
                     end
@@ -171,7 +165,7 @@ classdef ConfigFileClass < FileClass
                         break;
                     end
                     if obj.isParamName()
-                        fseek(obj.fid, fp_previous, 'bof');
+                        fseek(obj.fids(iF), fp_previous, 'bof');
                         break;
                     end
                     val{ii} = obj.getParamValueFromLine();
@@ -181,13 +175,12 @@ classdef ConfigFileClass < FileClass
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 %%%% Assign name/value pair to next param %%%%
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                obj.AddParam(name, val, valOptions, iP);
+                obj.AddParam(name, val, valOptions, iF);
                                 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 %%%% Move on to the next Param %%%%
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 obj.linestr = '';
-                iP = iP+1;
             end            
         end
         
@@ -198,33 +191,38 @@ classdef ConfigFileClass < FileClass
             if ~exist('options', 'var')
                 options = '';
             end
-            if strcmp(options, 'backup')
-                copyfile(obj.filename, [obj.filename, '.bak'])
-            end
-            if obj.fid<0
-                obj.fid = fopen(obj.filename, 'w');
-            end
-            if obj.fid<0
-                return;
-            end
-            fprintf(obj.fid, '\n');
-            for ii = 1:length(obj.params)
-                if iscell(obj.params(ii).valOptions) && all(~cellfun(@isempty,obj.params(ii).valOptions))
-                    fprintf(obj.fid, '%% %s # %s\n', obj.params(ii).name, strjoin(obj.params(ii).valOptions,', '));
-                elseif iscell(obj.params(ii).valOptions) && all(cellfun(@isempty,obj.params(ii).valOptions))
-                    fprintf(obj.fid, '%% %s #\n', obj.params(ii).name);
-                else
-                    fprintf(obj.fid, '%% %s\n', obj.params(ii).name);
+            for ii = 1:length(obj.fids)
+                if strcmp(options, 'backup')
+                    copyfile(obj.filenames{ii}, [obj.filenames{ii}, '.bak'])
                 end
-                for jj = 1:length(obj.params(ii).val)
-                    fprintf(obj.fid, '%s\n', obj.params(ii).val{jj});
+                if obj.fids(ii)<0
+                    obj.fids(ii) = fopen(obj.filenames{ii}, 'w');
                 end
-                fprintf(obj.fid, '\n');
+                if obj.fids(ii)<0
+                    continue;
+                end
+                fprintf(obj.fids(ii), '\n');
+                for jj = 1:length(obj.params)
+                    if obj.params(jj).iSrc ~= ii
+                        continue
+                    end
+                    if iscell(obj.params(jj).valOptions) && all(~cellfun(@isempty,obj.params(jj).valOptions))
+                        fprintf(obj.fids(ii), '%% %s # %s\n', obj.params(jj).name, strjoin(obj.params(jj).valOptions,', '));
+                    elseif iscell(obj.params(jj).valOptions) && all(cellfun(@isempty,obj.params(jj).valOptions))
+                        fprintf(obj.fids(ii), '%% %s #\n', obj.params(jj).name);
+                    else
+                        fprintf(obj.fids(ii), '%% %s\n', obj.params(jj).name);
+                    end
+                    for kk = 1:length(obj.params(jj).val)
+                        fprintf(obj.fids(ii), '%s\n', obj.params(jj).val{kk});
+                    end
+                    fprintf(obj.fids(ii), '\n');
+                end
+                fprintf(obj.fids(ii), '%% END\n');
+                
+                fclose(obj.fids(ii));
+                obj.fids(ii) = -1;
             end
-            fprintf(obj.fid, '%% END\n');
-            
-            fclose(obj.fid);
-            obj.fid = -1;
         end
         
         
@@ -243,31 +241,30 @@ classdef ConfigFileClass < FileClass
     
     
     methods
-
+        
         % -------------------------------------------------------------------------------------------------
         function InitParams(obj)
-            obj.params = struct('name','','val',{{}},'valOptions',{{}});
+            obj.params = struct('name','', 'val',{{}}, 'valOptions',{{}}, 'iSrc',0);
         end
         
         
         % -------------------------------------------------------------------------------------------------
-        function AddParam(obj, name, val, valOptions, iP)
+        function AddParam(obj, name, val, valOptions, iF)
             if ~iscell(val)
                 val = {val};
             end
-            if ~exist('iP', 'var')
-                iP = length(obj.params)+1;
-            end
+            iP = length(obj.params)+1;
             if isempty(obj.params)
                 obj.InitParams();
             end
             obj.params(iP).name = name;
             obj.params(iP).val = val;
             obj.params(iP).valOptions = valOptions;
-        end        
+            obj.params(iP).iSrc = iF;
+        end
         
         
-                
+        
         % -------------------------------------------------------------------------------------------------
         function b = isParamName(obj)
             b = false;
@@ -304,7 +301,7 @@ classdef ConfigFileClass < FileClass
                 return;
             end
             
-            % Do not remove spaces from param name 
+            % Do not remove spaces from param name
             % k = find(obj.linestr==' ');
             % obj.linestr(k)=[];
             if strcmpi(obj.linestr,'%end')
@@ -320,7 +317,7 @@ classdef ConfigFileClass < FileClass
                 b = true;
             end
         end
-            
+        
         
         % -------------------------------------------------------------------------------------------------
         function name = getParamNameFromLine(obj)
@@ -377,7 +374,7 @@ classdef ConfigFileClass < FileClass
             val = '';
             if isempty(obj.linestr)
                 return;
-            end            
+            end
             ii = 1;
             while ii<length(obj.linestr) && obj.linestr(ii)==' '
                 ii = ii+1;
@@ -408,7 +405,7 @@ classdef ConfigFileClass < FileClass
                 end
             end
         end
-
+        
         
         
         % -------------------------------------------------------------------------------------------------
@@ -432,8 +429,8 @@ classdef ConfigFileClass < FileClass
         function num = GetParamNum(obj)
             num = length(obj.params);
         end
-            
-            
+        
+        
         % -------------------------------------------------------------------------------------------------
         function name = GetParamName(obj, idx)
             name = '';
@@ -448,8 +445,8 @@ classdef ConfigFileClass < FileClass
             end
             name = obj.params(idx).name;
         end
-            
-            
+        
+        
         % -------------------------------------------------------------------------------------------------
         function val = GetParamValue(obj, idx)
             val = {};
@@ -467,7 +464,7 @@ classdef ConfigFileClass < FileClass
             end
             val = obj.params(idx).val;
         end
-            
+        
         
         
         % -------------------------------------------------------------------------------------------------
@@ -484,22 +481,26 @@ classdef ConfigFileClass < FileClass
             end
             valOptions = obj.params(idx).valOptions;
         end
-            
-            
+        
+        
         % -------------------------------------------------------------------------------------------------
         function Close(obj)
-            if obj.fid>0
-                fclose(obj.fid);                
+            for ii = 1:length(obj.fids)
+                if obj.fids(ii)>0
+                    fclose(obj.fids(ii));
+                end
+                obj.fids(ii) = -1;
             end
-            obj.fid = -1;
         end
         
         
         
         % -------------------------------------------------------------------------------------------------
         function Restore(obj)
-            if exist([obj.filename, '.bak'], 'file')
-                movefile([obj.filename, '.bak'], obj.filename)
+            for ii = 1:length(obj.filenames)
+                if exist([obj.filenames{ii}, '.bak'], 'file')
+                    movefile([obj.filenames{ii}, '.bak'], obj.filenames{ii})
+                end
             end
         end
         
@@ -507,7 +508,9 @@ classdef ConfigFileClass < FileClass
         
         % -------------------------------------------------------------------------------------------------
         function b = BackupExists(obj)
-            b = exist([obj.filename, '.bak'], 'file');
+            for ii = 1:length(obj.filenames)
+                b = exist([obj.filenames{ii}, '.bak'], 'file');
+            end
         end
         
         
@@ -523,8 +526,8 @@ classdef ConfigFileClass < FileClass
             end
             b = false;
         end
-
-
+        
+        
         % -------------------------------------------------------------------------------------------------
         function b = eq(obj, obj2)
             b = false;
@@ -544,7 +547,7 @@ classdef ConfigFileClass < FileClass
             end
             b = true;
         end
-
+        
         
         % -------------------------------------------------------------------------------------------------
         function b = Modified(obj)
@@ -553,6 +556,38 @@ classdef ConfigFileClass < FileClass
                 b = false;
             else
                 b = true;
+            end
+        end
+
+        
+        % -------------------------------------------------------------------------------------------------
+        function FindCfgFiles(obj, rootdir)
+            if nargin == 1
+                rootdir = pwd;
+            end            
+            if ~ispathvalid(rootdir, 'dir')
+                return;
+            end
+            rootdir = filesepStandard(rootdir);
+            
+            if ispathvalid([rootdir, 'AppSettings.cfg'])
+                obj.filenames{end+1,1} = [rootdir, 'AppSettings.cfg'];
+            end
+            dirs = dir([rootdir, '*']);
+            for ii = 1:length(dirs)
+                if ~dirs(ii).isdir
+                    continue;
+                end
+                if strcmp(dirs(ii).name, '.')
+                    continue;
+                end
+                if strcmp(dirs(ii).name, '.git')
+                    continue;
+                end
+                if strcmp(dirs(ii).name, '..')
+                    continue;
+                end
+                obj.FindCfgFiles([rootdir, dirs(ii).name]);
             end
         end
         

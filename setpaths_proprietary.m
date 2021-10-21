@@ -19,12 +19,8 @@ end
 
 
 % ---------------------------------------------------------
-function setpaths_proprietary_AtlasViewerGUI(options)
-
-
-if options.fluence_simulate
-    genMultWlFluenceFiles_CurrWorkspace;
-end
+function setpaths_proprietary_AtlasViewerGUI(~)
+genMultWlFluenceFiles_CurrWorkspace;
 
 r = checkToolboxes('AtlasViewer');
 
