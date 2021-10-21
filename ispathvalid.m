@@ -34,5 +34,9 @@ if ~isempty(options)
         return;
     end
 end
-b = ~isempty(dir(p));
 
+try
+    b = ~isempty(dir(p));
+catch
+    b = ~isempty(ls(p));
+end
