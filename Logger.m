@@ -30,7 +30,8 @@ classdef Logger < handle
             if isempty(ext)
                 ext = '.log';
             end
-            self.filename = [pname, '/', fname, ext];
+           
+            self.filename = [filesepStandard(pname), fname, ext];
             self.appname = fname;           
             
             % Check if log file for this application already exists - if it does close any open handles and delete it 
@@ -93,18 +94,36 @@ classdef Logger < handle
         end
         
         
+        
+        
         % -------------------------------------------------
-        function Write(self, s, options, hwait)
-            if ~exist('options','var')
-                options = [];
+        function Write(self, s, varargin) %#ok<*INUSL>
+            vars = '';
+            for ii = 1:length(varargin)
+                varargin{ii} = replaceSpecialChars(varargin{ii});
+                if isempty(vars)
+                    if ischar(varargin{ii})
+                        vars = sprintf('''%s''', varargin{ii});
+                    elseif isnumeric(varargin{ii})
+                        vars = sprintf('%s', num2str(varargin{ii}));
+                    end
+                else
+                    if ischar(varargin{ii})
+                        vars = sprintf('%s, ''%s''', vars, varargin{ii});
+                    elseif isnumeric(varargin{ii})
+                        vars = sprintf('%s, %s', vars, num2str(varargin{ii}));
+                    end
+                end
             end
-            if ~exist('hwait','var')
-                hwait = [];
+            if isempty(vars)
+                s = eval( sprintf('sprintf(s)') );
+            else
+                s = eval( sprintf('sprintf(s, %s)', vars) );
             end
             if s(end)~=sprintf('\n') %#ok<SPRINTFN>
                 s = sprintf('%s\n', s);
             end
-            self.WriteStr(s, options, hwait)
+            self.WriteStr(s)
         end
         
         
@@ -151,31 +170,20 @@ classdef Logger < handle
         
         
         % -------------------------------------------------
-        function WriteFmt(self, s, varargin) %#ok<INUSL>
-            vars = '';
-            for ii = 1:length(varargin)
-                if isempty(vars)
-                    if ischar(varargin{ii})
-                        vars = sprintf('''%s''', varargin{ii});
-                    elseif isnumeric(varargin{ii})
-                        vars = sprintf('%s', num2str(varargin{ii}));
-                    end
-                else
-                    if ischar(varargin{ii})
-                        vars = sprintf('%s, ''%s''', vars, varargin{ii});
-                    elseif isnumeric(varargin{ii})
-                        vars = sprintf('%s, %s', vars, num2str(varargin{ii}));
-                    end
-                end
+        function WriteNoFmt(self, s, options, hwait)
+            if ~exist('options','var')
+                options = [];
             end
-            if isempty(vars)
-                s = eval( sprintf('sprintf(s)') );
-            else
-                s = eval( sprintf('sprintf(s, %s)', vars) );
+            if ~exist('hwait','var')
+                hwait = [];
+            end
+            if s(end)~=sprintf('\n') %#ok<SPRINTFN>
+                s = sprintf('%s\n', s);
             end            
-            self.WriteStr(s)
+            self.WriteStr(s, options, hwait)
         end
         
+                
         
         % -------------------------------------------------
         function ct = CurrTime(self, msg, options, hwait)
