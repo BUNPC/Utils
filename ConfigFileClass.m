@@ -14,7 +14,7 @@ classdef ConfigFileClass < handle
         function obj = ConfigFileClass(rootdir)
             obj.linestr = '';
             obj.params = [];
-            obj.filenames = '';
+            obj.filenames = {};
             
             % Error checks
             if ~exist('rootdir','var') || isempty(rootdir)
@@ -508,8 +508,11 @@ classdef ConfigFileClass < handle
         
         % -------------------------------------------------------------------------------------------------
         function b = BackupExists(obj)
+            b = 0;
             for ii = 1:length(obj.filenames)
-                b = exist([obj.filenames{ii}, '.bak'], 'file');
+                if exist([obj.filenames{ii}, '.bak'], 'file')
+                    b = b+1;
+                end
             end
         end
         
