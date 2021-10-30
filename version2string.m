@@ -23,12 +23,10 @@ for ii = length(V):-1:1
 end
 
 % Generate vresion string from version cell array
-zeroflag = false;
 for kk = length(V):-1:1
-    if kk>2 && strcmp(V{kk},'0') && ~zeroflag
+    if kk>3
         continue;
     end
-    zeroflag = true;
     if (kk+1)>length(V) || isnumber(V{kk+1})
         verstr = sprintf('%s.%s', V{kk}, verstr);
     else
