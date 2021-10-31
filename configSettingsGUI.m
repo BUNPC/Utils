@@ -1,5 +1,46 @@
-function configSettingsGUI(filenames, nParamsPerCol, options)
+function configSettingsGUI(varargin)
 
+% Parse args
+[filenames, nParamsPerCol, options] = ParseArgs(varargin);
+
+InitializeGuiStruct(filenames, options);
+hf = CreateGui();
+ResetGui(hf);
+ResizeGui(hf, nParamsPerCol);
+hBttnSave = DrawBttns(hf);
+DrawConfigParams(hf, hBttnSave);
+
+
+
+% ----------------------------------------------------------
+function [filenames, nParamsPerCol, options] = ParseArgs(args)
+filenames = {};
+nParamsPerCol = [];
+options = '';
+if length(args)==1
+    if iscell(args{1}) || ischar(args{1})
+        filenames = args{1};
+    else
+        nParamsPerCol = args{1};
+    end
+elseif length(args)==2
+    if iscell(args{1}) || ischar(args{1})
+        filenames = args{1};
+        nParamsPerCol = args{2};
+    else
+        filenames = args{2};
+        nParamsPerCol = args{1};
+    end
+elseif length(args)==3
+    if iscell(args{1}) || ischar(args{1})
+        filenames = args{1};
+        nParamsPerCol = args{2};
+    else
+        filenames = args{2};
+        nParamsPerCol = args{1};
+    end
+    options = args{2};
+end
 if ~exist('filenames','var') || isempty(filenames)
     filenames = {};
 end
@@ -16,12 +57,7 @@ if nParamsPerCol>12
     nParamsPerCol = 12;
 end
 
-InitializeGuiStruct(filenames, options);
-hf = CreateGui();
-ResetGui(hf);
-ResizeGui(hf, nParamsPerCol);
-hBttnSave = DrawBttns(hf);
-DrawConfigParams(hf, hBttnSave);
+
 
 
 % -------------------------------------------------------------
