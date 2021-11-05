@@ -406,7 +406,24 @@ classdef ConfigFileClass < handle
             end
         end
         
-        
+         % -------------------------------------------------------------------------------------------------
+        function val = GetMultiValues(obj, paramName)
+            val = '';
+            if nargin<2
+                return;
+            end
+            if ~ischar(paramName)
+                return;
+            end
+            for ii = 1:length(obj.params)
+                if strcmp(obj.params(ii).name, paramName)
+                    if isempty(obj.params(ii).val)
+                        return;
+                    end
+                    val = obj.params(ii).val;
+                end
+            end
+        end
         
         % -------------------------------------------------------------------------------------------------
         function SetValue(obj, paramName, val)
