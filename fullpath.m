@@ -1,67 +1,53 @@
 function pnamefull = fullpath(pname, style)
 
 pnamefull = '';
+currdir = pwd;
 
 if ~exist('pname','var')
-    return;
-end
-if ~exist(pname,'file')
     return;
 end
 if ~exist('style','var')
     style = 'linux';
 end
 
-% If path is file, extract pathname
-p = ''; 
-f = '';
-e = '';
-if strcmp(pname, '.')
-    p = pwd; f = ''; e = '';
-elseif strcmp(pname, '..')
-    currdir = pwd;
-    cd('..');
-    p = pwd; f = ''; e = '';
-    cd(currdir);
-else
-    [p,f,e] = fileparts(pname);
-    if length(f)==1 && f=='.' && length(e)==1 && e=='.' 
-        f = ''; 
-        e = '';
-    elseif isempty(f) && length(e)==1 && e=='.' 
-        e = '';
-    end
-end
-pname = removeExtraDots(p);
-
 % If path to file wasn't specified at all, that is, if only the filename was
 % provided without an absolute or relative path, the add './' prefix to file name.
-if isempty(pname)
-    p = fileparts(['./', pname]);
-    pname = p;
+if isempty(fileparts(pname))
+    pname = ['./', pname];
 end
 
-
-% get full pathname 
-currdir = pwd;
-
+% If path is file, extract pathname
 try
-    cd(pname);
-catch
-    try 
-        cd(p)
-    catch        
-        return;
+    [p0,f0,e0] = fileparts(pname);
+    if ispathvalid(pname, 'file') || ~isempty(strfind(f0,'*')) || ~isempty(strfind(e0,'*')) %#ok<*STREMP>
+        cd(p0);
+        f = f0;
+        e = e0;
+    elseif ispathvalid(pname, 'dir')
+        cd(pname);
+        f = '';
+        e = '';
+    else
+        return
     end
+    
+catch ME
+    
+    cd(currdir)
+    % rethrow(ME)
+    return
+    
 end
+p = pwd;
 
 if strcmp(style, 'linux')
     sep = '/';
 else
     sep = filesep;
 end
-pnamefull = [pwd,sep,f,e];
-if ~exist(pnamefull, 'file')
+
+pnamefull = [p,sep,f,e];
+if ~ispathvalid(pnamefull)
     pnamefull = '';
     cd(currdir);
     return;

@@ -38,6 +38,7 @@ classdef ConfigFileClass < handle
                 % We have a filename of an existing readable file.
                 try
                     obj.Parse(ii);
+                    fprintf('Loaded config file %s\n')
                 catch ME
                     % In case of parsing error make sure to close file handle
                     % so we don't leave the application in a bad state, then rethrow error
