@@ -4,11 +4,20 @@ if ~exist('appname','var') || isempty(appname)
     if ~exist('appdir','var') || isempty(appdir)
         appdir = getAppDir();
     end
+    if isempty(appdir)
+        return
+    end
+    if appdir(end)=='/' || appdir(end)=='\'
+        appdir(end) = '';
+    end
     [~,f,e] = fileparts(appdir);
     appname = [f,e];
 end
 if ~exist('appdir','var') || isempty(appdir)
     appdir = getAppDir();
+end
+if isempty(appdir)
+    return
 end
 libdir = '/Shared';
 if isdeployed()
